@@ -8,6 +8,7 @@ mkdir -p "$OUT"
 
 # 🔐 Fix Git safe directory issue (CI environments)
 git config --global --add safe.directory "$TARGET"
+git config --global --add safe.directory "$TARGET/.git"
 
 echo "[*] Running Gitleaks on $TARGET..."
 gitleaks detect \
@@ -16,7 +17,7 @@ gitleaks detect \
   --report-path "$OUT/gitleaks.json" \
   --redact || true
 
-GL_COUNT=$(jq 'length' "$OUT/gitleaks.json")
+GL_COUNT=$(jq 'length' "$OUT/gitleaks.json" 2>/dev/null || echo 0)
 
 echo "[*] Running TruffleHog on $TARGET..."
 
@@ -25,7 +26,7 @@ trufflehog git file://$TARGET \
   --no-update \
   > "$OUT/trufflehog.json" || true
 
-TH_COUNT=$(jq '. | length' "$OUT/trufflehog.json")
+TH_COUNT=$(jq 'length' "$OUT/trufflehog.json" 2>/dev/null || echo 0)
 
 TOTAL=0
 
