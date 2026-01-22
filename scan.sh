@@ -16,11 +16,32 @@ gitleaks detect \
   --report-path "$OUT/gitleaks.json" \
   --redact || true
 
-COUNT=$(jq 'length' "$OUT/gitleaks.json")
+GL_COUNT=$(jq 'length' "$OUT/gitleaks.json")
 
-if [ "$COUNT" -gt 0 ]; then
-  echo "[!] Secrets found: $COUNT"
+echo "[*] Running TruffleHog on $TARGET..."
+
+trufflehog git file://$TARGET \
+  --json \
+  --no-update \
+  > "$OUT/trufflehog.json" || true
+
+TH_COUNT=$(jq '. | length' "$OUT/trufflehog.json")
+
+TOTAL=0
+
+if [ "$GL_COUNT" -gt 0 ]; then
+  echo "[!] Gitleaks detected secrets: $GL_COUNT"
+  TOTAL=$((TOTAL + GL_COUNT))
+fi
+
+if [ "$TH_COUNT" -gt 0 ]; then
+  echo "[!] TruffleHog detected secrets: $TH_COUNT"
+  TOTAL=$((TOTAL + TH_COUNT))
+fi
+
+if [ "$TOTAL" -gt 0 ]; then
+  echo "[!] Total secrets detected: $TOTAL"
   exit 1
 fi
 
-echo "[+] No secrets found"
+echo "[+] No secrets detected"
