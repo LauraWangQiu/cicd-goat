@@ -26,7 +26,7 @@ trufflehog git file://$TARGET \
   --no-update \
   > "$OUT/trufflehog.json" || true
 
-TH_COUNT=$(jq 'length' "$OUT/trufflehog.json" 2>/dev/null || echo 0)
+TH_COUNT=$(jq -s 'length' "$OUT/trufflehog.json")
 
 TOTAL=0
 
