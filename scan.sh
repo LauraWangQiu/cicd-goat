@@ -11,7 +11,6 @@ HEAD_REF=${GITHUB_HEAD_REF:-HEAD}
 DIFF_FILE=pr.diff
 DIFF_FILE_PATH="$OUT/$DIFF_FILE"
 
-# 🔐 Inicializa git si no existe
 if [ ! -d "$TARGET/.git" ]; then
   cd "$TARGET"
   git init
@@ -22,7 +21,6 @@ fi
 git config --global --add safe.directory "$TARGET"
 cd "$TARGET"
 
-# Obtén los cambios de la PR
 git diff origin/$BASE_REF...HEAD > "$DIFF_FILE_PATH" 2>/dev/null || \
 git diff HEAD~1...HEAD > "$DIFF_FILE_PATH" || \
 git diff --cached > "$DIFF_FILE_PATH" || true
