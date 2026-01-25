@@ -6,16 +6,26 @@ OUT=/scan/reports
 
 mkdir -p "$OUT"
 
-BASE_REF=${GITHUB_BASE_REF}
-HEAD_REF=${GITHUB_HEAD_REF}
+BASE_REF=${GITHUB_BASE_REF:-main}
+HEAD_REF=${GITHUB_HEAD_REF:-HEAD}
 DIFF_FILE=pr.diff
 DIFF_FILE_PATH="$OUT/$DIFF_FILE"
 
-# 🔐 Fix Git safe directory issue (CI environments)
-git config --global --add safe.directory "$TARGET"
+# 🔐 Inicializa git si no existe
+if [ ! -d "$TARGET/.git" ]; then
+  cd "$TARGET"
+  git init
+  git config --global --add safe.directory "$TARGET"
+  git remote add origin https://github.com/$GITHUB_REPOSITORY.git
+fi
 
-git fetch origin "$BASE_REF"
-git diff origin/"$BASE_REF"...HEAD > "$DIFF_FILE_PATH"
+git config --global --add safe.directory "$TARGET"
+cd "$TARGET"
+
+# Obtén los cambios de la PR
+git diff origin/$BASE_REF...HEAD > "$DIFF_FILE_PATH" 2>/dev/null || \
+git diff HEAD~1...HEAD > "$DIFF_FILE_PATH" || \
+git diff --cached > "$DIFF_FILE_PATH" || true
 
 echo "[*] Running Gitleaks on $TARGET..."
 gitleaks detect \
@@ -25,7 +35,7 @@ gitleaks detect \
   --report-path "$OUT/gitleaks.json" \
   --redact || true
 
-COUNT=$(jq 'length' "$OUT/gitleaks.json")
+COUNT=$(jq 'length' "$OUT/gitleaks.json" 2>/dev/null || echo 0)
 
 if [ "$COUNT" -gt 0 ]; then
   echo "[!] Secrets found: $COUNT"
