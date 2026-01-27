@@ -1,7 +1,6 @@
 FROM debian:12-slim
 
 ENV GITLEAKS_VERSION=8.30.0
-ENV TRUFFLEHOG_VERSION=3.92.5
 
 RUN apt-get update && apt-get install -y \
     curl git jq bash ca-certificates \
