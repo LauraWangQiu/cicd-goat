@@ -9,7 +9,6 @@ LEAKS_FILE_PATH="$OUT/gitleaks.json"
 mkdir -p "$OUT"
 
 BASE_REF=${GITHUB_BASE_REF:-main}
-HEAD_REF=${GITHUB_HEAD_REF:-HEAD}
 
 git config --global --add safe.directory "$TARGET"
 cd "$TARGET"
