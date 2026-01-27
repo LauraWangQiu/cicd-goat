@@ -1,0 +1,94 @@
+name: OWASP Dependency Check
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'Pipfile'
+      - 'Pipfile.lock'
+      - 'requirements*.txt'
+      - '**/Dockerfile'
+      - 'docker-compose*.yaml'
+      - '.github/workflows/dependency-check.yaml'
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  dependency-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          path: '.'
+          format: 'JSON,SARIF,HTML'
+          args: >
+            --enable-retired
+            --enable-experimental
+            --suppression-file=dc-suppressions.xml
+
+      - name: Upload Dependency-Check reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: dependency-check-reports-${{ github.sha }}
+          path: dependency-check-reports/
+          retention-days: 30
+
+      - name: Comment on PR with results
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = './dependency-check-reports/dependency-check-report.json';
+            
+            if (!fs.existsSync(reportPath)) {
+              console.log('No report found');
+              return;
+            }
+            
+            const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+            const vulnerabilities = report.reportSchema?.reportVersion ? 
+              report.reportSchema.vulnerabilities || [] : 
+              report.vulnerabilities || [];
+            
+            const critical = vulnerabilities.filter(v => v.severity === 'CRITICAL').length;
+            const high = vulnerabilities.filter(v => v.severity === 'HIGH').length;
+            const medium = vulnerabilities.filter(v => v.severity === 'MEDIUM').length;
+            
+            const comment = `## 📦 OWASP Dependency-Check Results
+            
+            | Severity | Count |
+            |----------|-------|
+            | 🔴 CRITICAL | ${critical} |
+            | 🟠 HIGH | ${high} |
+            | 🟡 MEDIUM | ${medium} |
+            | 📊 TOTAL | ${vulnerabilities.length} |
+
+            [📋 Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+                        `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Fail if critical vulnerabilities found
+        run: |
+          CRITICAL=$(jq '[.reportSchema.vulnerabilities[] | select(.severity=="CRITICAL")] | length' dependency-check-reports/dependency-check-report.json 2>/dev/null || echo 0)
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "❌ Found $CRITICAL critical vulnerabilities"
+            exit 1
+          fi
+          echo "✅ No critical vulnerabilities found"
