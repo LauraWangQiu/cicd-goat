@@ -49,47 +49,55 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+
             const reportPath = './reports/dependency-check-report.json';
-            
             if (!fs.existsSync(reportPath)) {
-              console.log('No report found');
-              return;
+            console.log('No report found');
+            return;
             }
-            
+
             const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-            const vulnerabilities = report.reportSchema?.vulnerabilities || [];
-            
-            const critical = vulnerabilities.filter(v => v.severity === 'CRITICAL').length;
-            const high = vulnerabilities.filter(v => v.severity === 'HIGH').length;
-            const medium = vulnerabilities.filter(v => v.severity === 'MEDIUM').length;
-            
+
+            const allVulns = (report.dependencies || [])
+            .flatMap(dep => dep.vulnerabilities || []);
+
+            const critical = allVulns.filter(v => v.severity === 'CRITICAL').length;
+            const high = allVulns.filter(v => v.severity === 'HIGH').length;
+            const medium = allVulns.filter(v => v.severity === 'MEDIUM').length;
+
             const comment = `## 📦 OWASP Dependency-Check Results
-            
+
             | Severity | Count |
             |----------|-------|
             | 🔴 CRITICAL | ${critical} |
             | 🟠 HIGH | ${high} |
             | 🟡 MEDIUM | ${medium} |
-            | 📊 TOTAL | ${vulnerabilities.length} |
+            | 📊 TOTAL | ${allVulns.length} |
 
-            [📋 Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
-            
+            [📋 Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+
             github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
             });
 
       - name: Fail if critical vulnerabilities found
         run: |
           if [ -f reports/dependency-check-report.json ]; then
-            CRITICAL=$(jq '[.reportSchema.vulnerabilities[] | select(.severity=="CRITICAL")] | length' reports/dependency-check-report.json 2>/dev/null || echo 0)
+            CRITICAL=$(jq '
+              [.dependencies[]?.vulnerabilities[]? | select(.severity=="CRITICAL")] | length
+            ' reports/dependency-check-report.json)
+
             if [ "$CRITICAL" -gt 0 ]; then
-              echo "❌ Found $CRITICAL critical vulnerabilities"
-              exit 1
+            echo "❌ Found $CRITICAL critical vulnerabilities"
+            exit 1
             fi
+
             echo "✅ No critical vulnerabilities found"
+
           else
             echo "⚠️ No report generated"
           fi
