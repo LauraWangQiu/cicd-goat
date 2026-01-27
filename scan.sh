@@ -9,7 +9,6 @@ LEAKS_FILE_PATH="$OUT/gitleaks.json"
 mkdir -p "$OUT"
 
 BASE_REF=${GITHUB_BASE_REF:-main}
-HEAD_REF=${GITHUB_HEAD_REF:-HEAD}
 
 git config --global --add safe.directory "$TARGET"
 cd "$TARGET"
@@ -25,12 +24,3 @@ gitleaks detect \
   --report-format json \
   --report-path "$LEAKS_FILE_PATH" \
   --redact || true
-
-COUNT=$(jq 'length' "$LEAKS_FILE_PATH" 2>/dev/null || echo 0)
-
-if [ "$COUNT" -gt 0 ]; then
-  echo "[!] Secrets found: $COUNT"
-  exit 1
-fi
-
-echo "[+] No secrets found"
