@@ -1,0 +1,26 @@
+name: SCA Scanning
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'Pipfile'
+      - 'Pipfile.lock'
+      - 'requirements*.txt'
+      - '**/Dockerfile'
+      - 'docker-compose*.yaml'
+      - '.github/workflows/sca.yaml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  sca:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan dependencies
+        uses: LauraWangQiu/cicd-security-scanner/sca@v1
+        with:
+          severity: HIGH,CRITICAL
+          fail_on_vulnerabilities: true
